@@ -1,19 +1,18 @@
 export default async function handler(req, res) {
 
-  // ---- CORS HEADERS ----
+  // ---- REQUIRED CORS HEADERS ----
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  // Handle preflight request
+  // Handle browser preflight request
   if (req.method === "OPTIONS") {
-    res.status(200).end();
-    return;
+    return res.status(200).end();
   }
 
+  // Only allow POST
   if (req.method !== "POST") {
-    res.status(405).json({ error: "Method not allowed" });
-    return;
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
@@ -21,11 +20,10 @@ export default async function handler(req, res) {
     const { imageBase64 } = req.body;
 
     if (!imageBase64) {
-      res.status(400).json({ error: "No image provided" });
-      return;
+      return res.status(400).json({ error: "No image provided" });
     }
 
-    const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -58,7 +56,7 @@ export default async function handler(req, res) {
       })
     });
 
-    const data = await openaiResponse.json();
+    const data = await response.json();
 
     const aiText = data?.choices?.[0]?.message?.content || "{}";
 
@@ -70,13 +68,13 @@ export default async function handler(req, res) {
       parsed = { analysisText: aiText };
     }
 
-    res.status(200).json(parsed);
+    return res.status(200).json(parsed);
 
   } catch (error) {
 
     console.error(error);
 
-    res.status(500).json({ error: "Skin analysis failed" });
+    return res.status(500).json({ error: "Skin analysis failed" });
 
   }
 
