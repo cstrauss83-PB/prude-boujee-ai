@@ -1,18 +1,19 @@
 export default async function handler(req, res) {
 
-  // ---- REQUIRED CORS HEADERS ----
+  // ---- CORS HEADERS ----
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  // Handle OPTIONS preflight request
+  // Handle preflight request
   if (req.method === "OPTIONS") {
-    return res.status(200).end();
+    res.status(200).end();
+    return;
   }
 
-  // Only allow POST
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+    res.status(405).json({ error: "Method not allowed" });
+    return;
   }
 
   try {
@@ -20,10 +21,11 @@ export default async function handler(req, res) {
     const { imageBase64 } = req.body;
 
     if (!imageBase64) {
-      return res.status(400).json({ error: "No image provided" });
+      res.status(400).json({ error: "No image provided" });
+      return;
     }
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -34,15 +36,14 @@ export default async function handler(req, res) {
         messages: [
           {
             role: "system",
-            content: "You are a Korean skincare consultant for Prude & Boujee. Return ONLY JSON."
+            content: "You are a Korean skincare consultant for Prude & Boujee. Return ONLY valid JSON."
           },
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: `Analyze this face photo and return JSON with:
-skinType, hydrationLevel, textureScore, overallHealth, concerns, analysisText, routine, products, proTips`
+                text: "Analyze this face photo and return JSON with skinType, hydrationLevel, textureScore, overallHealth, concerns, analysisText, routine, products, proTips."
               },
               {
                 type: "image_url",
@@ -57,7 +58,7 @@ skinType, hydrationLevel, textureScore, overallHealth, concerns, analysisText, r
       })
     });
 
-    const data = await response.json();
+    const data = await openaiResponse.json();
 
     const aiText = data?.choices?.[0]?.message?.content || "{}";
 
@@ -69,15 +70,13 @@ skinType, hydrationLevel, textureScore, overallHealth, concerns, analysisText, r
       parsed = { analysisText: aiText };
     }
 
-    return res.status(200).json(parsed);
+    res.status(200).json(parsed);
 
   } catch (error) {
 
     console.error(error);
 
-    return res.status(500).json({
-      error: "Skin analysis failed"
-    });
+    res.status(500).json({ error: "Skin analysis failed" });
 
   }
 
