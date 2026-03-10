@@ -34,6 +34,50 @@ export default async function handler(req, res) {
   },
   body: JSON.stringify({
     model: "gpt-4o",
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a Korean skincare consultant for Prude & Boujee. Analyze the face and return ONLY valid JSON."
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: `Analyze this face photo and return JSON exactly like this:
+
+{
+"skinType":"",
+"hydrationLevel":"",
+"textureScore":"",
+"overallHealth":"",
+"concerns":[],
+"analysisText":"",
+"routine":[{"step":1,"name":"","why":""}],
+"products":[{"brand":"","name":"","why":""}],
+"proTips":[]
+}`
+          },
+          {
+            type: "image_url",
+            image_url: {
+              url: `data:image/jpeg;base64,${imageBase64}`
+            }
+          }
+        ]
+      }
+    ],
+    max_tokens: 800
+  })
+});
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
+  },
+  body: JSON.stringify({
+    model: "gpt-4o",
     response_format: { type: "json_object" },
     messages: [
       {
