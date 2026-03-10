@@ -2,22 +2,33 @@ export const config = {
   api: { bodyParser: { sizeLimit: "10mb" } },
 };
 
+const STORE_BRANDS = [
+  "Medicube",
+  "Skin1004",
+  "Mixsoon",
+  "Beauty of Joseon",
+  "COSRX",
+  "SOME BY MI",
+  "Anua",
+  "TIRTIR",
+  "Round Lab",
+  "Torriden",
+  "Isntree",
+  "Klairs"
+];
+
 export default async function handler(req, res) {
 
-  // ---- CORS ----
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  // ---- IMPORTANT: Handle preflight BEFORE anything else ----
   if (req.method === "OPTIONS") {
-    res.status(200).end();
-    return;
+    return res.status(200).end();
   }
 
   if (req.method !== "POST") {
-    res.status(405).json({ error: "Method not allowed" });
-    return;
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
@@ -25,11 +36,7 @@ export default async function handler(req, res) {
     let body = req.body;
 
     if (typeof body === "string") {
-      try {
-        body = JSON.parse(body);
-      } catch {
-        return res.status(400).json({ error: "Invalid JSON body" });
-      }
+      body = JSON.parse(body);
     }
 
     const { imageBase64 } = body || {};
@@ -40,27 +47,19 @@ export default async function handler(req, res) {
 
     const cleanBase64 = imageBase64.replace(/^data:image\/[a-z+]+;base64,/, "");
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        max_tokens: 1200,
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are an expert Korean skincare consultant. Return ONLY valid JSON."
-          },
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: `Analyze this face photo and return JSON like:
+    const prompt = `
+You are a professional Korean skincare consultant with 15 years of dermatology experience.
+
+Analyze facial skin for:
+- hydration
+- pore visibility
+- redness
+- acne / congestion
+- pigmentation
+- oil balance
+- texture irregularities
+
+Return ONLY valid JSON.
 
 {
 "skinType":"",
@@ -69,16 +68,50 @@ export default async function handler(req, res) {
 "overallHealth":"",
 "concerns":[],
 "analysisText":"",
+"skinScore":{
+"hydration":0,
+"texture":0,
+"clarity":0,
+"barrier":0,
+"glassSkinScore":0
+},
 "routine":[{"step":1,"name":"","why":""}],
-"products":[{"brand":"","name":"","why":""}],
+"products":[{"brand":"","name":"","why":"","url":""}],
 "proTips":[]
-}`
+}
+
+IMPORTANT:
+
+Only recommend products from these brands:
+${STORE_BRANDS.join(", ")}
+
+Use URLs in this format:
+https://www.prudeandboujee.com/search?q=PRODUCT_NAME
+`;
+
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        Authorization:`Bearer ${process.env.OPENAI_API_KEY}`
+      },
+      body:JSON.stringify({
+        model:"gpt-4o-mini",
+        max_tokens:1200,
+        messages:[
+          {role:"system",content:prompt},
+          {
+            role:"user",
+            content:[
+              {
+                type:"text",
+                text:"Analyze this face photo."
               },
               {
-                type: "image_url",
-                image_url: {
-                  url: `data:image/jpeg;base64,${cleanBase64}`,
-                  detail: "low"
+                type:"image_url",
+                image_url:{
+                  url:`data:image/jpeg;base64,${cleanBase64}`,
+                  detail:"low"
                 }
               }
             ]
@@ -87,34 +120,26 @@ export default async function handler(req, res) {
       })
     });
 
-    if (!response.ok) {
-      const err = await response.text();
-      console.error("OpenAI error:", err);
-      return res.status(502).json({ error: "AI service error." });
-    }
-
     const data = await response.json();
 
     const aiText = data?.choices?.[0]?.message?.content || "{}";
 
     let parsed;
 
-    try {
-      parsed = JSON.parse(
-        aiText.replace(/```json/g, "").replace(/```/g, "").trim()
-      );
-    } catch {
+    try{
+      parsed = JSON.parse(aiText.replace(/```json/g,"").replace(/```/g,""));
+    }catch{
       parsed = { analysisText: aiText };
     }
 
     return res.status(200).json(parsed);
 
-  } catch (err) {
+  } catch(err){
 
-    console.error("Skin analysis error:", err);
+    console.error("Skin analysis error:",err);
 
     return res.status(500).json({
-      error: "Something went wrong. Please try again."
+      error:"Something went wrong. Please try again."
     });
 
   }
