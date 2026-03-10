@@ -1,6 +1,6 @@
 export default async function handler(req, res) {
 
-  // ---- REQUIRED CORS HEADERS ----
+  // ---- CORS HEADERS ----
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -34,7 +34,7 @@ export default async function handler(req, res) {
         messages: [
           {
             role: "system",
-            content: "You are a Korean skincare consultant for Prude & Boujee. Return ONLY valid JSON."
+            content: "You are a Korean skincare consultant for Prude & Boujee. Return ONLY JSON."
           },
           {
             role: "user",
@@ -74,7 +74,9 @@ export default async function handler(req, res) {
 
     console.error(error);
 
-    return res.status(500).json({ error: "Skin analysis failed" });
+    return res.status(500).json({
+      error: "Skin analysis failed"
+    });
 
   }
 
