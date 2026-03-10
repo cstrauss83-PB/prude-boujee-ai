@@ -1,7 +1,6 @@
-import OpenAI from "openai";
-
 export default async function handler(req, res) {
 
+  // Only allow POST requests
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -10,53 +9,68 @@ export default async function handler(req, res) {
 
     const { imageBase64 } = req.body;
 
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
-    });
+    if (!imageBase64) {
+      return res.status(400).json({ error: "No image provided" });
+    }
 
-    const prompt = `
-You are a Korean skincare consultant for Prude & Boujee.
-
-Analyze the face photo and return ONLY JSON.
+    // Call OpenAI API
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: "You are a Korean skincare consultant for Prude & Boujee. Analyze the user's face and return skincare recommendations. Return ONLY valid JSON."
+          },
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: `Analyze this face photo and return JSON in this format:
 
 {
-"skinType":"",
-"hydrationLevel":"",
-"textureScore":"",
-"overallHealth":"",
-"concerns":[],
-"analysisText":"",
-"routine":[],
-"products":[],
-"proTips":[]
-}
-`;
-
-    const response = await openai.responses.create({
-      model: "gpt-4.1",
-      input: [
-        {
-          role: "user",
-          content: [
-            { type: "input_text", text: prompt },
-            {
-              type: "input_image",
-              image_base64: imageBase64
-            }
-          ]
-        }
-      ]
+  "skinType":"",
+  "hydrationLevel":"",
+  "textureScore":"",
+  "overallHealth":"",
+  "concerns":[],
+  "analysisText":"",
+  "routine":[
+    {"step":1,"name":"","why":"","timing":""}
+  ],
+  "products":[
+    {"brand":"","name":"","why":""}
+  ],
+  "proTips":[]
+}`
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:image/jpeg;base64,${imageBase64}`
+                }
+              }
+            ]
+          }
+        ],
+        max_tokens: 800
+      })
     });
 
-    const text = response.output[0].content[0].text;
+    const data = await response.json();
 
-    const result = JSON.parse(text);
-
-    res.status(200).json(result);
+    // Return OpenAI response
+    res.status(200).json(data);
 
   } catch (error) {
 
-    console.error(error);
+    console.error("Skin analysis error:", error);
 
     res.status(500).json({
       error: "Skin analysis failed"
