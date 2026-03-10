@@ -7,34 +7,32 @@ export default async function handler(req, res) {
 
   // ---- HANDLE PREFLIGHT FIRST ----
   if (req.method === "OPTIONS") {
-    res.status(200).end();
-    return;
+    return res.status(200).end();
   }
 
   // Only allow POST
   if (req.method !== "POST") {
-    res.status(405).json({ error: "Method not allowed" });
-    return;
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
 
+    // ---- PARSE BODY SAFELY ----
     let body;
 
-try {
-  body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
-} catch (err) {
-  res.status(400).json({ error: "Invalid JSON body" });
-  return;
-}
-
-const { imageBase64 } = body;
-
-    if (!imageBase64) {
-      res.status(400).json({ error: "No image provided" });
-      return;
+    if (typeof req.body === "string") {
+      body = JSON.parse(req.body);
+    } else {
+      body = req.body;
     }
 
+    const { imageBase64 } = body;
+
+    if (!imageBase64) {
+      return res.status(400).json({ error: "No image provided" });
+    }
+
+    // ---- CALL OPENAI ----
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -47,7 +45,7 @@ const { imageBase64 } = body;
           {
             role: "system",
             content:
-              "You are a Korean skincare consultant for Prude & Boujee. Return ONLY valid JSON."
+              "You are a Korean skincare consultant. Return ONLY valid JSON."
           },
           {
             role: "user",
@@ -71,7 +69,7 @@ const { imageBase64 } = body;
               {
                 type: "image_url",
                 image_url: {
-                  url: \`data:image/jpeg;base64,\${imageBase64}\`
+                  url: `data:image/jpeg;base64,${imageBase64}`
                 }
               }
             ]
@@ -93,13 +91,13 @@ const { imageBase64 } = body;
       parsed = { analysisText: aiText };
     }
 
-    res.status(200).json(parsed);
+    return res.status(200).json(parsed);
 
   } catch (error) {
 
     console.error("Skin analysis error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       error: "Skin analysis failed"
     });
 
