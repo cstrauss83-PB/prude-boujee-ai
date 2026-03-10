@@ -1,11 +1,11 @@
 export default async function handler(req, res) {
 
-  // CORS headers
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  // ---- CORS HEADERS ----
+  res.setHeader("Access-Control-Allow-Origin", "https://www.prudeandboujee.com");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  // Handle preflight request
+  // Handle browser preflight
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
@@ -40,19 +40,8 @@ export default async function handler(req, res) {
             content: [
               {
                 type: "text",
-                text: `Analyze this face photo and return JSON:
-
-{
-"skinType":"",
-"hydrationLevel":"",
-"textureScore":"",
-"overallHealth":"",
-"concerns":[],
-"analysisText":"",
-"routine":[],
-"products":[],
-"proTips":[]
-}`
+                text: `Analyze this face photo and return JSON with:
+skinType, hydrationLevel, textureScore, overallHealth, concerns, analysisText, routine, products, proTips`
               },
               {
                 type: "image_url",
@@ -62,19 +51,31 @@ export default async function handler(req, res) {
               }
             ]
           }
-        ]
+        ],
+        max_tokens: 800
       })
     });
 
     const data = await response.json();
 
-    res.status(200).json(data);
+    // Extract AI response text
+    const aiText = data?.choices?.[0]?.message?.content || "{}";
+
+    let parsed;
+
+    try {
+      parsed = JSON.parse(aiText);
+    } catch {
+      parsed = { analysisText: aiText };
+    }
+
+    return res.status(200).json(parsed);
 
   } catch (error) {
 
     console.error(error);
 
-    res.status(500).json({
+    return res.status(500).json({
       error: "Skin analysis failed"
     });
 
