@@ -1,15 +1,16 @@
 export default async function handler(req, res) {
 
-  // ---- CORS HEADERS ----
-  res.setHeader("Access-Control-Allow-Origin", "https://www.prudeandboujee.com");
+  // ---- REQUIRED CORS HEADERS ----
+  res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  // Handle browser preflight
+  // Handle OPTIONS preflight request
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
 
+  // Only allow POST
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -33,7 +34,7 @@ export default async function handler(req, res) {
         messages: [
           {
             role: "system",
-            content: "You are a Korean skincare consultant for Prude & Boujee. Return only JSON."
+            content: "You are a Korean skincare consultant for Prude & Boujee. Return ONLY JSON."
           },
           {
             role: "user",
@@ -58,7 +59,6 @@ skinType, hydrationLevel, textureScore, overallHealth, concerns, analysisText, r
 
     const data = await response.json();
 
-    // Extract AI response text
     const aiText = data?.choices?.[0]?.message?.content || "{}";
 
     let parsed;
