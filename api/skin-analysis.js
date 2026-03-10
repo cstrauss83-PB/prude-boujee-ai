@@ -1,134 +1,131 @@
 // api/skin-analysis.js
-// CRITICAL: Disable Vercel's default body parser — base64 images are large
 export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: "10mb",
-    },
-  },
+  api: { bodyParser: { sizeLimit: "10mb" } },
 };
 
 export default async function handler(req, res) {
-  // ── CORS headers on EVERY response, including errors ──────────────────────
+  // CORS on every response
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   res.setHeader("Access-Control-Max-Age", "86400");
 
-  // ── Preflight — must return 200 immediately, no further processing ─────────
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-
-  // ── Only allow POST ────────────────────────────────────────────────────────
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    // ── Parse body ─────────────────────────────────────────────────────────
     let body = req.body;
     if (typeof body === "string") {
-      try {
-        body = JSON.parse(body);
-      } catch {
-        return res.status(400).json({ error: "Invalid JSON body" });
-      }
+      try { body = JSON.parse(body); }
+      catch { return res.status(400).json({ error: "Invalid JSON body" }); }
     }
 
     const { imageBase64 } = body || {};
+    if (!imageBase64) return res.status(400).json({ error: "No image provided" });
 
-    if (!imageBase64) {
-      return res.status(400).json({ error: "No image provided" });
-    }
+    const cleanBase64 = imageBase64.replace(/^data:image\/[a-z+]+;base64,/, "");
 
-    // Strip data URI prefix if the client accidentally included it
-    const cleanBase64 = imageBase64.replace(/^data:image\/[a-z]+;base64,/, "");
-
-    // ── Call OpenAI GPT-4o Vision ──────────────────────────────────────────
-    const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o",
-        max_tokens: 1200,
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are an expert Korean skincare consultant with 15 years of experience. " +
-              "Analyze face photos and return ONLY valid JSON — no markdown, no backticks, no preamble. " +
-              "Be specific, warm, and professional.",
-          },
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: `Analyze this face photo carefully and return ONLY this JSON structure (fill in all fields):
+    // gpt-4o-mini: full vision support, 10x higher rate limits than gpt-4o, ~20x cheaper
+    const payload = {
+      model: "gpt-4o-mini",
+      max_tokens: 1200,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are an expert Korean skincare consultant with 15 years of experience. " +
+            "Analyze face photos and return ONLY valid JSON — no markdown, no backticks, no extra text. " +
+            "Be specific, warm, and professional.",
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `Analyze this face photo and return ONLY this exact JSON structure with all fields filled in:
 
 {
   "skinType": "e.g. Combination / Oily / Dry / Normal / Sensitive",
   "hydrationLevel": "e.g. Well Hydrated / Moderately Dehydrated / Very Dehydrated",
   "textureScore": "e.g. Smooth / Slightly Uneven / Rough",
   "overallHealth": "e.g. Excellent / Good / Fair / Needs Attention",
-  "concerns": ["list", "of", "concerns"],
-  "analysisText": "2-3 sentence friendly summary of their skin",
+  "concerns": ["list", "of", "visible", "concerns"],
+  "analysisText": "2-3 warm, specific sentences summarising their skin",
   "routine": [
-    {"step": 1, "name": "Step name", "why": "Why this step matters for their skin"}
+    {"step": 1, "name": "Step name", "why": "Why this step helps their specific skin"}
   ],
   "products": [
-    {"brand": "Brand name", "name": "Product name", "why": "Why this product suits their skin"}
+    {"brand": "Brand", "name": "Product name", "why": "Why it suits their skin"}
   ],
   "proTips": ["tip 1", "tip 2", "tip 3"]
 }
 
-Return 4-6 routine steps and 3-4 product recommendations. Focus on Korean skincare where appropriate.`,
+Return 4-6 routine steps and 3-4 product recommendations. Favour Korean skincare brands where appropriate.`,
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:image/jpeg;base64,${cleanBase64}`,
+                detail: "low",
               },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:image/jpeg;base64,${cleanBase64}`,
-                  detail: "low", // "low" = cheaper + faster; still sufficient for skin analysis
-                },
-              },
-            ],
-          },
-        ],
-      }),
-    });
+            },
+          ],
+        },
+      ],
+    };
+
+    // Retry up to 3 times on 429 with exponential backoff
+    let openaiRes;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (openaiRes.status !== 429) break;
+
+      if (attempt < 3) {
+        const waitMs = attempt * 2000;
+        console.warn(`OpenAI 429, retrying in ${waitMs}ms (attempt ${attempt}/3)`);
+        await new Promise((r) => setTimeout(r, waitMs));
+      }
+    }
 
     if (!openaiRes.ok) {
-      const errText = await openaiRes.text();
-      console.error("OpenAI error:", openaiRes.status, errText);
+      const errBody = await openaiRes.json().catch(() => ({}));
+      console.error("OpenAI error:", openaiRes.status, errBody);
+
+      if (openaiRes.status === 429) {
+        return res.status(429).json({
+          error: "Our AI consultant is very busy right now. Please wait 30 seconds and try again.",
+        });
+      }
+      if (openaiRes.status === 401) {
+        return res.status(502).json({ error: "API authentication error — please contact support." });
+      }
       return res.status(502).json({
-        error: `OpenAI returned ${openaiRes.status}`,
-        detail: errText.slice(0, 200),
+        error: `AI service error (${openaiRes.status}). Please try again shortly.`,
       });
     }
 
     const data = await openaiRes.json();
     const aiText = data?.choices?.[0]?.message?.content || "{}";
 
-    // ── Parse OpenAI response — strip markdown fences if present ──────────
     let parsed;
     try {
-      const clean = aiText
-        .replace(/```json\s*/gi, "")
-        .replace(/```\s*/g, "")
-        .trim();
+      const clean = aiText.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
       parsed = JSON.parse(clean);
     } catch {
-      // Fallback: return raw text so the widget can still show something
       parsed = {
         analysisText: aiText,
         skinType: "Analysis complete",
-        hydrationLevel: "See details below",
-        textureScore: "See details below",
-        overallHealth: "See details below",
+        hydrationLevel: "See summary below",
+        textureScore: "See summary below",
+        overallHealth: "See summary below",
         concerns: [],
         routine: [],
         products: [],
@@ -137,8 +134,9 @@ Return 4-6 routine steps and 3-4 product recommendations. Focus on Korean skinca
     }
 
     return res.status(200).json(parsed);
+
   } catch (err) {
     console.error("Skin analysis error:", err);
-    return res.status(500).json({ error: "Skin analysis failed. Please try again." });
+    return res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 }
