@@ -1,74 +1,75 @@
 (function(){
 
-const container = document.getElementById("pb-ai-skin");
+const API="https://prudeandboujee-chris-projects-773af4c9.vercel.app/api/skin-analysis";
 
-container.innerHTML = `
-<style>
-#pb-ai-skin{
-font-family:Arial,sans-serif;
-background:#fdf7f2;
-padding:40px 20px;
-max-width:800px;
-margin:auto;
-text-align:center;
-}
-.upload{
-border:2px dashed #e8d5c9;
-padding:40px;
-cursor:pointer;
-background:white;
-border-radius:16px;
-}
-button{
-background:#3a2a25;
-color:white;
-border:none;
-padding:14px 24px;
-margin-top:20px;
-cursor:pointer;
-border-radius:8px;
-}
-.result{
-margin-top:30px;
-}
-</style>
+const container=document.getElementById("pb-ai-skin");
+if(!container)return;
 
-<h2>AI Skin Consultation</h2>
+container.innerHTML=`
+<h2>Free Online AI Skin Consultation</h2>
 
-<div class="upload" id="upload">Upload Photo</div>
-<input type="file" id="file" style="display:none">
+<div id="uploadBox" style="border:2px dashed #e8c4b8;padding:30px;cursor:pointer;text-align:center;">
+Upload Photo
+</div>
 
-<img id="preview" style="max-width:100%;margin-top:20px;border-radius:10px">
+<input type="file" id="fileInput" accept="image/*" style="display:none">
 
-<br>
-<button id="analyze">Analyze My Skin</button>
+<img id="preview" style="max-width:200px;margin-top:20px;border-radius:10px">
 
-<div id="loading" style="display:none;margin-top:20px">Analyzing...</div>
+<br><br>
 
-<div class="result" id="result"></div>
+<button id="analyzeBtn">Analyze My Skin</button>
+
+<div id="loading" style="display:none;margin-top:20px;">Analyzing your skin...</div>
+
+<div id="results"></div>
 `;
 
-let imageBase64 = null;
+let imageBase64=null;
 
-document.getElementById("upload").onclick = () => {
-document.getElementById("file").click();
+document.getElementById("uploadBox").onclick=()=>{
+document.getElementById("fileInput").click();
 };
 
-document.getElementById("file").addEventListener("change", e => {
+document.getElementById("fileInput").addEventListener("change",e=>{
 
-const file = e.target.files[0];
-const reader = new FileReader();
+const file=e.target.files[0];
+const reader=new FileReader();
 
-reader.onload = evt => {
-imageBase64 = evt.target.result.split(",")[1];
-document.getElementById("preview").src = evt.target.result;
+reader.onload=function(evt){
+
+const img=new Image();
+
+img.onload=function(){
+
+const canvas=document.createElement("canvas");
+const ctx=canvas.getContext("2d");
+
+const maxWidth=800;
+const scale=maxWidth/img.width;
+
+canvas.width=maxWidth;
+canvas.height=img.height*scale;
+
+ctx.drawImage(img,0,0,canvas.width,canvas.height);
+
+const compressed=canvas.toDataURL("image/jpeg",0.7);
+
+imageBase64=compressed.split(",")[1];
+
+document.getElementById("preview").src=compressed;
+
+};
+
+img.src=evt.target.result;
+
 };
 
 reader.readAsDataURL(file);
 
 });
 
-document.getElementById("analyze").onclick = async () => {
+document.getElementById("analyzeBtn").onclick=async()=>{
 
 if(!imageBase64){
 alert("Please upload a photo first.");
@@ -79,20 +80,15 @@ document.getElementById("loading").style.display="block";
 
 try{
 
-const res = await fetch(
-"https://prudeandboujee-chris-projects-773af4c9.vercel.app/api/skin-analysis",
-{
+const res=await fetch(API,{
 method:"POST",
-headers:{ "Content-Type":"application/json" },
-body: JSON.stringify({ imageBase64 })
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({imageBase64})
 });
 
-const data = await res.json();
+const data=await res.json();
 
-document.getElementById("loading").style.display="none";
-
-document.getElementById("result").innerHTML =
-"<pre>"+JSON.stringify(data,null,2)+"</pre>";
+renderResults(data);
 
 }catch(err){
 
@@ -102,5 +98,48 @@ document.getElementById("loading").innerText="Error analyzing skin.";
 }
 
 };
+
+function renderResults(r){
+
+document.getElementById("loading").style.display="none";
+
+let html="";
+
+if(r.skinScore){
+
+html+=`
+<h3>Glass Skin Score: ${r.skinScore.glassSkinScore}</h3>
+<p>Hydration: ${r.skinScore.hydration}</p>
+<p>Texture: ${r.skinScore.texture}</p>
+<p>Clarity: ${r.skinScore.clarity}</p>
+<p>Barrier: ${r.skinScore.barrier}</p>
+`;
+
+}
+
+html+=`<p>${r.analysisText||""}</p>`;
+
+if(r.products){
+
+html+="<h3>Recommended Products</h3>";
+
+r.products.forEach(p=>{
+
+html+=`
+<div>
+<strong>${p.brand}</strong><br>
+${p.name}<br>
+${p.why}<br>
+<a href="${p.url}" target="_blank">Shop</a>
+</div>
+`;
+
+});
+
+}
+
+document.getElementById("results").innerHTML=html;
+
+}
 
 })();
