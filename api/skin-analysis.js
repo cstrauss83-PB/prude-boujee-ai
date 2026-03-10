@@ -189,7 +189,7 @@ function buildProductResults(routine, analysis) {
       skinType: analysis.skinType || "",
       hydrationLevel: analysis.hydrationLevel || "",
       overallHealth: analysis.overallHealth || "",
-      limit: 5,
+      limit: 4,
     }).filter((p) => {
       if (!p.url) return false;
       if (usedUrls.has(p.url)) return false;
@@ -198,7 +198,7 @@ function buildProductResults(routine, analysis) {
 
     const selected = [];
     for (const p of matched) {
-      if (selected.length >= 3) break;
+      if (selected.length >= 2) break;
       usedUrls.add(p.url);
       selected.push(p);
     }
