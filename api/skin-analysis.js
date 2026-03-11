@@ -60,7 +60,6 @@ function safeJsonParse(text) {
   try {
     return JSON.parse(text);
   } catch {
-    // Remove fenced markdown if present
     const cleaned = text
       .replace(/```json/gi, "")
       .replace(/```/g, "")
@@ -87,7 +86,7 @@ function uniqueByUrl(products) {
 function scoreProduct(product, { step, concerns, skinType, hydrationLevel, overallHealth }) {
   let score = 0;
 
-  const productSteps = normalizeArray(product.routineStep).map(normalizeText);
+  const productSteps = normalizeArray(product.routineStep || product.step).map(normalizeText);
   const productConcerns = normalizeArray(product.concerns).map(normalizeText);
   const productSkinTypes = normalizeArray(product.skinTypes).map(normalizeText);
   const productBenefits = normalizeArray(product.benefits).map(normalizeText);
@@ -126,7 +125,11 @@ function scoreProduct(product, { step, concerns, skinType, hydrationLevel, overa
     if (productBenefits.includes("anti-acne")) score += 2;
   }
 
-  if (targetConcerns.includes("dark-spots") || targetConcerns.includes("hyperpigmentation") || targetConcerns.includes("dullness")) {
+  if (
+    targetConcerns.includes("dark-spots") ||
+    targetConcerns.includes("hyperpigmentation") ||
+    targetConcerns.includes("dullness")
+  ) {
     if (product.brightening === true) score += 3;
     if (productBenefits.includes("brightening")) score += 2;
   }
@@ -160,13 +163,12 @@ function matchProducts({ step, concerns, skinType, hydrationLevel, overallHealth
   const targetSkinType = normalizeText(skinType);
 
   let candidates = PRODUCT_CATALOG.filter((product) => {
-    const steps = normalizeArray(product.routineStep).map(normalizeText);
+    const steps = normalizeArray(product.routineStep || product.step).map(normalizeText);
     if (!steps.includes(targetStep)) return false;
     if (!product.url) return false;
     return true;
   });
 
-  // Prefer skin type matches, but do not hard-fail if skin types are blank
   const strictSkinType = candidates.filter((product) => {
     const skinTypes = normalizeArray(product.skinTypes).map(normalizeText);
     return skinTypes.length === 0 || skinTypes.includes(targetSkinType);
@@ -194,7 +196,13 @@ function matchProducts({ step, concerns, skinType, hydrationLevel, overallHealth
     name: p.name || p.fullName || "",
     why: p.whyItFits || "",
     url: p.url || "",
-    step: normalizeArray(p.step)[0] || step,
+    step: normalizeArray(p.routineStep || p.step)[0] || step,
+    routineStep: normalizeArray(p.routineStep || p.step)[0] || step,
+    price: p.price || "",
+    layeringNotes: p.layeringNotes || "",
+    doNotCombineWith: p.doNotCombineWith || [],
+    pairsWellWith: p.pairsWellWith || [],
+    consultationTags: p.consultationTags || [],
   }));
 }
 
@@ -250,16 +258,16 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "No image provided" });
     }
 
-   if (!PRODUCT_CATALOG.length) {
-  return res.status(500).json({
-    error: "Product catalog is missing or failed to load.",
-    debug: {
-      catalogPath: CATALOG_PATH,
-      cwd: process.cwd(),
-      catalogExists: fs.existsSync(CATALOG_PATH),
-    },
-  });
-}
+    if (!PRODUCT_CATALOG.length) {
+      return res.status(500).json({
+        error: "Product catalog is missing or failed to load.",
+        debug: {
+          catalogPath: CATALOG_PATH,
+          cwd: process.cwd(),
+          catalogExists: fs.existsSync(CATALOG_PATH),
+        },
+      });
+    }
 
     const cleanBase64 = imageBase64.replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, "");
 
@@ -370,7 +378,7 @@ Guidance:
       });
     }
 
-    const normalizedRoutine = normalizeArray(parsed.routine).length
+    const normalizedRoutine = Array.isArray(parsed.routine) && parsed.routine.length
       ? parsed.routine
       : [
           { step: 1, name: "cleanser", why: "Cleanse gently without stripping." },
