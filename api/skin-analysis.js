@@ -68,7 +68,7 @@ function uniqueByUrl(products) {
 function scoreProduct(product, { step, concerns, skinType, hydrationLevel, overallHealth }) {
   let score = 0;
 
-  const productSteps = normalizeArray(product.step).map(normalizeText);
+  const productSteps = normalizeArray(product.routineStep).map(normalizeText);
   const productConcerns = normalizeArray(product.concerns).map(normalizeText);
   const productSkinTypes = normalizeArray(product.skinTypes).map(normalizeText);
   const productBenefits = normalizeArray(product.benefits).map(normalizeText);
