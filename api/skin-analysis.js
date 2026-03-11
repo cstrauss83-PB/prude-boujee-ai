@@ -1,11 +1,16 @@
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 
 export const config = {
   api: { bodyParser: { sizeLimit: "10mb" } },
 };
 
-const CATALOG_PATH = path.join(process.cwd(), "data", "products.catalog.json");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Resolve relative to this file so Vercel can always find it
+const CATALOG_PATH = path.resolve(__dirname, "../data/products.catalog.json");
 
 function loadProductCatalog() {
   try {
