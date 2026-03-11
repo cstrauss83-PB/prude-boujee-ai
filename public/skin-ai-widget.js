@@ -1,5 +1,5 @@
 (function () {
-  const API_URL = "https://prudeandboujee-chris-projects-773af4c9.vercel.app/api/skin-analysis";
+  const API_URL = "/api/skin-analysis";
   const CONTAINER_ID = "skin-ai-widget";
 
   function injectStyles() {
