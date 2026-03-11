@@ -1,17 +1,25 @@
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
 
 export const config = {
   api: { bodyParser: { sizeLimit: "10mb" } },
 };
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Try multiple path strategies to find the catalog on Vercel
+function findCatalogPath() {
+  const candidates = [
+    path.join(process.cwd(), "data", "products.catalog.json"),
+    "/var/task/data/products.catalog.json",
+  ];
+  for (const p of candidates) {
+    try {
+      if (fs.existsSync(p)) return p;
+    } catch (_) {}
+  }
+  return candidates[0];
+}
 
-// Resolve relative to this file so Vercel can always find it
-const CATALOG_PATH = path.resolve(__dirname, "../data/products.catalog.json");
-
+const CATALOG_PATH = findCatalogPath();
 function loadProductCatalog() {
   try {
     console.log("Catalog path:", CATALOG_PATH);
