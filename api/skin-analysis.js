@@ -1,27 +1,16 @@
 import fs from "fs";
-import path from "path";
+import { fileURLToPath } from "url";
 
 export const config = {
   api: { bodyParser: { sizeLimit: "10mb" } },
 };
 
-// Try multiple path strategies to find the catalog on Vercel
-function findCatalogPath() {
-  const candidates = [
-    path.join(process.cwd(), "data", "products.catalog.json"),
-    "/var/task/data/products.catalog.json",
-  ];
-  for (const p of candidates) {
-    try {
-      if (fs.existsSync(p)) return p;
-    } catch (_) {}
-  }
-  return candidates[0];
-}
+const CATALOG_URL = new URL("../data/products.catalog.json", import.meta.url);
+const CATALOG_PATH = fileURLToPath(CATALOG_URL);
 
-const CATALOG_PATH = findCatalogPath();
 function loadProductCatalog() {
   try {
+    console.log("import.meta catalog URL:", CATALOG_URL.href);
     console.log("Catalog path:", CATALOG_PATH);
     console.log("process.cwd():", process.cwd());
     console.log("Catalog exists:", fs.existsSync(CATALOG_PATH));
@@ -47,7 +36,6 @@ function loadProductCatalog() {
   }
 }
 
-// Load once per serverless instance
 const PRODUCT_CATALOG = loadProductCatalog();
 
 function normalizeText(value = "") {
@@ -275,6 +263,7 @@ export default async function handler(req, res) {
       return res.status(500).json({
         error: "Product catalog is missing or failed to load.",
         debug: {
+          catalogUrl: CATALOG_URL.href,
           catalogPath: CATALOG_PATH,
           cwd: process.cwd(),
           catalogExists: fs.existsSync(CATALOG_PATH),
