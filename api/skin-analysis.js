@@ -1,4 +1,5 @@
 import fs from "fs";
+import path from "path";
 import { fileURLToPath } from "url";
 
 export const config = {
@@ -10,9 +11,7 @@ const CATALOG_PATH = fileURLToPath(CATALOG_URL);
 
 function loadProductCatalog() {
   try {
-    console.log("import.meta catalog URL:", CATALOG_URL.href);
     console.log("Catalog path:", CATALOG_PATH);
-    console.log("process.cwd():", process.cwd());
     console.log("Catalog exists:", fs.existsSync(CATALOG_PATH));
 
     const raw = fs.readFileSync(CATALOG_PATH, "utf8");
@@ -25,13 +24,13 @@ function loadProductCatalog() {
     } else if (parsed && Array.isArray(parsed.products)) {
       products = parsed.products;
     } else {
-      throw new Error("Invalid catalog shape. Expected [] or { products: [] }");
+      throw new Error("Invalid catalog shape");
     }
 
-    console.log(`Loaded product catalog: ${products.length} products`);
+    console.log(`Loaded ${products.length} products`);
     return products;
   } catch (err) {
-    console.error("Failed to load product catalog:", err);
+    console.error("Catalog load error:", err);
     return [];
   }
 }
