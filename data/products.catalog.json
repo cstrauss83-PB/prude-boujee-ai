@@ -1632,10 +1632,10 @@
     "category": "Cleansers",
     "subcategory": null,
     "step": [
-      "cleanser"
+      "moisturizer"
     ],
-    "routineStep": "cleanser",
-    "routineStepOrder": 1,
+    "routineStep": "moisturizer",
+    "routineStepOrder": 6,
     "texture": "balm",
     "benefits": [
       "hydrating",
