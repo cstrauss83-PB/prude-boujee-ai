@@ -437,31 +437,60 @@
     `;
   }
 
-  function renderRoutine(routine = []) {
-    if (!Array.isArray(routine) || !routine.length) return "";
+function renderRoutine(routine = []) {
+  if (!Array.isArray(routine) || !routine.length) return "";
 
-    return `
-      <div class="pb-section">
-        <div class="pb-section-title">
-          <h3>Your Routine</h3>
-          <div class="pb-line"></div>
-        </div>
-        ${routine
-          .map(
-            (step, index) => `
-              <div class="pb-routine-item">
-                <div class="pb-routine-number">${escapeHtml(step.step || index + 1)}</div>
-                <div>
-                  <div class="pb-routine-name">${escapeHtml(step.name || "")}</div>
-                  <div class="pb-routine-why">${escapeHtml(step.why || "")}</div>
-                </div>
-              </div>
-            `
-          )
-          .join("")}
+  return `
+    <div class="pb-section">
+      <div class="pb-section-title">
+        <h3>Your Routine</h3>
+        <div class="pb-line"></div>
       </div>
-    `;
-  }
+
+      ${routine.map((step,index)=>`
+        <div class="pb-routine-item">
+          <div class="pb-routine-number">${index+1}</div>
+          <div>
+            <div class="pb-routine-name">${escapeHtml(step.name)}</div>
+            <div class="pb-routine-why">${escapeHtml(step.why)}</div>
+
+            <div class="pb-products">
+              ${(step.products||[]).map(product=>`
+                <div class="pb-product-card">
+
+                  <div class="pb-product-brand">
+                    ${escapeHtml(product.brand||"")}
+                  </div>
+
+                  <div class="pb-product-title">
+                    ${escapeHtml(product.name||"")}
+                  </div>
+
+                  <div class="pb-product-why">
+                    ${escapeHtml(product.why||"")}
+                  </div>
+
+                  <div class="pb-product-actions">
+                    <a
+                      class="pb-btn"
+                      href="${escapeHtml(product.url||"#")}"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Review Item
+                    </a>
+                  </div>
+
+                </div>
+              `).join("")}
+            </div>
+
+          </div>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
 
   function renderProductCard(product) {
     const notes = [];
