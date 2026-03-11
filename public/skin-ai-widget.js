@@ -41,64 +41,81 @@ return String(v)
 .filter(Boolean);
 }
 
-function renderRoutine(routine=[]){
+function renderRoutine(routine = []) {
 
-if(!Array.isArray(routine) || !routine.length) return "";
+  if (!Array.isArray(routine) || !routine.length) return "";
 
-return `
+  return `
+    <div class="pb-section">
 
-<div class="pb-section">
+      <div class="pb-section-title">
+        <h3>Your Routine</h3>
+        <div class="pb-line"></div>
+      </div>
 
-<h3>Your Routine</h3>
+      ${routine.map((step,index)=>`
 
-${routine.map((step,index)=>`
+        <div class="pb-routine-item">
 
-<div class="pb-routine-item">
+          <div class="pb-routine-number">
+            ${index + 1}
+          </div>
 
-<div>
-<strong>${index+1}. ${escapeHtml(step.name)}</strong>
-<div>${escapeHtml(step.why || "")}</div>
-</div>
+          <div>
 
-<div class="pb-products">
+            <div class="pb-routine-name">
+              ${escapeHtml(step.name)}
+            </div>
 
-${(step.products || []).map(product=>`
+            <div class="pb-routine-why">
+              ${escapeHtml(step.why || "")}
+            </div>
 
-<div class="pb-product-card">
+            <div class="pb-products">
 
-<div><strong>${escapeHtml(product.brand || "")}</strong></div>
+              ${(step.products || []).map(product => `
 
-<div>${escapeHtml(product.name || "")}</div>
+                <div class="pb-product-card">
 
-<div>${escapeHtml(product.why || "")}</div>
+                  <div class="pb-product-brand">
+                    ${escapeHtml(product.brand || "")}
+                  </div>
 
-<div>
+                  <div class="pb-product-title">
+                    ${escapeHtml(product.name || "")}
+                  </div>
 
-<a
-href="${escapeHtml(product.url || "#")}"
-target="_blank"
-rel="noopener noreferrer"
->
+                  <div class="pb-product-why">
+                    ${escapeHtml(product.why || "")}
+                  </div>
 
-Review Item
+                  <div class="pb-product-actions">
 
-</a>
+                    <a
+                      class="pb-btn"
+                      href="${escapeHtml(product.url || "#")}"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Review Item
+                    </a>
 
-</div>
+                  </div>
 
-</div>
+                </div>
 
-`).join("")}
+              `).join("")}
 
-</div>
+            </div>
 
-</div>
+          </div>
 
-`).join("")}
+        </div>
 
-</div>
+      `).join("")}
 
-`;
+    </div>
+  `;
 }
 
 function renderResults(data){
