@@ -250,11 +250,16 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "No image provided" });
     }
 
-    if (!PRODUCT_CATALOG.length) {
-      return res.status(500).json({
-        error: "Product catalog is missing or failed to load.",
-      });
-    }
+   if (!PRODUCT_CATALOG.length) {
+  return res.status(500).json({
+    error: "Product catalog is missing or failed to load.",
+    debug: {
+      catalogPath: CATALOG_PATH,
+      cwd: process.cwd(),
+      catalogExists: fs.existsSync(CATALOG_PATH),
+    },
+  });
+}
 
     const cleanBase64 = imageBase64.replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, "");
 
