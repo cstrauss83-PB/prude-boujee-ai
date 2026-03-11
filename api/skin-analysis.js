@@ -280,7 +280,7 @@ function matchProducts({ step, concerns, skinType, hydrationLevel, overallHealth
     brand: p.brand || "",
     name: p.name || p.fullName || "",
     why: p.whyItFits || "",
-    url: p.url || "",
+    url: p.sourceXlsxURL || p.url || "",
     step: normalizeArray(p.routineStep || p.step)[0] || step,
     routineStep: normalizeArray(p.routineStep || p.step)[0] || step,
     price: p.price || "",
