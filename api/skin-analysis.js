@@ -1,13 +1,11 @@
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
+const fs = require("fs");
+const path = require("path");
 
-export const config = {
+module.exports.config = {
   api: { bodyParser: { sizeLimit: "10mb" } },
 };
 
-const CATALOG_URL = new URL("../data/products.catalog.json", import.meta.url);
-const CATALOG_PATH = fileURLToPath(CATALOG_URL);
+const CATALOG_PATH = path.join(__dirname, "..", "data", "products.catalog.json");
 
 function loadProductCatalog() {
   try {
@@ -24,13 +22,13 @@ function loadProductCatalog() {
     } else if (parsed && Array.isArray(parsed.products)) {
       products = parsed.products;
     } else {
-      throw new Error("Invalid catalog shape");
+      throw new Error("Invalid catalog shape. Expected [] or { products: [] }");
     }
 
-    console.log(`Loaded ${products.length} products`);
+    console.log(`Loaded product catalog: ${products.length} products`);
     return products;
   } catch (err) {
-    console.error("Catalog load error:", err);
+    console.error("Failed to load product catalog:", err);
     return [];
   }
 }
@@ -44,9 +42,7 @@ function normalizeText(value = "") {
 function normalizeArray(value) {
   if (!value) return [];
   if (Array.isArray(value)) {
-    return value
-      .map((v) => String(v).trim())
-      .filter(Boolean);
+    return value.map((v) => String(v).trim()).filter(Boolean);
   }
   return String(value)
     .split(",")
@@ -100,9 +96,7 @@ function scoreProduct(product, { step, concerns, skinType, hydrationLevel, overa
 
   if (productSteps.includes(targetStep)) score += 8;
 
-  if (targetSkinType && productSkinTypes.includes(targetSkinType)) {
-    score += 5;
-  }
+  if (targetSkinType && productSkinTypes.includes(targetSkinType)) score += 5;
 
   for (const concern of targetConcerns) {
     if (productConcerns.includes(concern)) score += 4;
@@ -145,8 +139,8 @@ function scoreProduct(product, { step, concerns, skinType, hydrationLevel, overa
     if (product.hydrating === true) score += 2;
   }
 
-  if (health.includes("healthy")) {
-    if (heroIngredients.length > 0) score += 1;
+  if (health.includes("healthy") && heroIngredients.length > 0) {
+    score += 1;
   }
 
   if (product.fragranceFree === true) score += 1;
@@ -239,12 +233,13 @@ function buildProductResults(routine, analysis) {
   });
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") return res.status(200).end();
+
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -262,9 +257,7 @@ export default async function handler(req, res) {
       return res.status(500).json({
         error: "Product catalog is missing or failed to load.",
         debug: {
-          catalogUrl: CATALOG_URL.href,
           catalogPath: CATALOG_PATH,
-          cwd: process.cwd(),
           catalogExists: fs.existsSync(CATALOG_PATH),
         },
       });
@@ -379,15 +372,16 @@ Guidance:
       });
     }
 
-    const normalizedRoutine = Array.isArray(parsed.routine) && parsed.routine.length
-      ? parsed.routine
-      : [
-          { step: 1, name: "cleanser", why: "Cleanse gently without stripping." },
-          { step: 2, name: "toner", why: "Support hydration and prep skin." },
-          { step: 3, name: "serum", why: "Target the main visible concerns." },
-          { step: 4, name: "moisturizer", why: "Seal in hydration and support the barrier." },
-          { step: 5, name: "sunscreen", why: "Protect skin daily from UV exposure." },
-        ];
+    const normalizedRoutine =
+      Array.isArray(parsed.routine) && parsed.routine.length
+        ? parsed.routine
+        : [
+            { step: 1, name: "cleanser", why: "Cleanse gently without stripping." },
+            { step: 2, name: "toner", why: "Support hydration and prep skin." },
+            { step: 3, name: "serum", why: "Target the main visible concerns." },
+            { step: 4, name: "moisturizer", why: "Seal in hydration and support the barrier." },
+            { step: 5, name: "sunscreen", why: "Protect skin daily from UV exposure." },
+          ];
 
     const analysis = {
       skinType: parsed.skinType || "",
@@ -429,9 +423,8 @@ Guidance:
     });
   } catch (err) {
     console.error("Skin analysis error:", err);
-
     return res.status(500).json({
       error: "Something went wrong. Please try again.",
     });
   }
-}
+};
