@@ -45,9 +45,14 @@ function normalizeArray(value) {
     return value.map((v) => String(v).trim()).filter(Boolean);
   }
   return String(value)
-    .split(",")
+    .split(/[|,]/)
     .map((v) => v.trim())
     .filter(Boolean);
+}
+
+function toNumber(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
 }
 
 function safeJsonParse(text) {
@@ -79,6 +84,16 @@ function uniqueByUrl(products) {
   });
 }
 
+function enrichStepAliases(step) {
+  const target = normalizeText(step);
+  const aliases = new Set([target]);
+
+  if (target === "serum") aliases.add("ampoule");
+  if (target === "ampoule") aliases.add("serum");
+
+  return Array.from(aliases);
+}
+
 function scoreProduct(product, { step, concerns, skinType, hydrationLevel, overallHealth }) {
   let score = 0;
 
@@ -88,35 +103,40 @@ function scoreProduct(product, { step, concerns, skinType, hydrationLevel, overa
   const productBenefits = normalizeArray(product.benefits).map(normalizeText);
   const heroIngredients = normalizeArray(product.heroIngredients).map(normalizeText);
 
-  const targetStep = normalizeText(step);
+  const targetSteps = enrichStepAliases(step);
   const targetSkinType = normalizeText(skinType);
   const targetConcerns = normalizeArray(concerns).map(normalizeText);
   const hydration = normalizeText(hydrationLevel);
   const health = normalizeText(overallHealth);
 
-  if (productSteps.includes(targetStep)) score += 8;
+  const stepMatch = targetSteps.some((s) => productSteps.includes(s));
+  if (stepMatch) score += 10;
+  else score -= 20;
 
-  if (targetSkinType && productSkinTypes.includes(targetSkinType)) score += 5;
+  if (targetSkinType && productSkinTypes.includes(targetSkinType)) {
+    score += 6;
+  }
 
   for (const concern of targetConcerns) {
     if (productConcerns.includes(concern)) score += 4;
   }
 
+  // Boolean / text logic
   if (targetConcerns.includes("redness") || targetConcerns.includes("sensitivity")) {
     if (productBenefits.includes("soothing")) score += 3;
-    if (product.sensitiveSafe === true) score += 3;
-    if (product.barrierSupport === true) score += 2;
+    if (product.sensitiveSafe === true) score += 4;
+    if (product.barrierSupport === true) score += 3;
   }
 
   if (targetConcerns.includes("dehydration") || targetConcerns.includes("dryness")) {
-    if (product.hydrating === true) score += 3;
-    if (productBenefits.includes("hydrating")) score += 2;
+    if (product.hydrating === true) score += 4;
+    if (productBenefits.includes("hydrating")) score += 3;
     if (product.barrierSupport === true) score += 2;
   }
 
   if (targetConcerns.includes("acne")) {
-    if (product.acneSafe === true) score += 3;
-    if (productBenefits.includes("anti-acne")) score += 2;
+    if (product.acneSafe === true) score += 4;
+    if (productBenefits.includes("anti-acne")) score += 3;
   }
 
   if (
@@ -124,13 +144,13 @@ function scoreProduct(product, { step, concerns, skinType, hydrationLevel, overa
     targetConcerns.includes("hyperpigmentation") ||
     targetConcerns.includes("dullness")
   ) {
-    if (product.brightening === true) score += 3;
-    if (productBenefits.includes("brightening")) score += 2;
+    if (product.brightening === true) score += 4;
+    if (productBenefits.includes("brightening")) score += 3;
   }
 
   if (targetConcerns.includes("pores") || targetConcerns.includes("oiliness")) {
-    if (productBenefits.includes("pore care")) score += 2;
-    if (productBenefits.includes("oil balance")) score += 2;
+    if (productBenefits.includes("pore care")) score += 3;
+    if (productBenefits.includes("oil balance")) score += 3;
   }
 
   if (hydration.includes("optimal")) {
@@ -146,19 +166,90 @@ function scoreProduct(product, { step, concerns, skinType, hydrationLevel, overa
   if (product.fragranceFree === true) score += 1;
   if (product.lowIrritation === true) score += 1;
 
+  // Master catalog scoring fields
+  const barrierSafeScore = toNumber(product.barrierSafeScore);
+  const acneCompatibilityScore = toNumber(product.acneCompatibilityScore);
+  const sensitiveSkinScore = toNumber(product.sensitiveSkinScore);
+  const hydrationScore = toNumber(product.hydrationScore);
+  const brighteningScore = toNumber(product.brighteningScore);
+  const exfoliationIntensity = toNumber(product.exfoliationIntensity);
+  const comedogenicRiskScore = toNumber(product.comedogenicRiskScore);
+  const irritationRiskScore = toNumber(product.irritationRiskScore);
+
+  if (barrierSafeScore > 0) score += barrierSafeScore / 25;
+  if (hydrationScore > 0) score += hydrationScore / 20;
+
+  if (targetConcerns.includes("acne") && acneCompatibilityScore > 0) {
+    score += acneCompatibilityScore / 18;
+  }
+
+  if ((targetConcerns.includes("redness") || targetConcerns.includes("sensitivity")) && sensitiveSkinScore > 0) {
+    score += sensitiveSkinScore / 18;
+  }
+
+  if (
+    targetConcerns.includes("dark-spots") ||
+    targetConcerns.includes("hyperpigmentation") ||
+    targetConcerns.includes("dullness")
+  ) {
+    if (brighteningScore > 0) score += brighteningScore / 18;
+  }
+
+  if (targetConcerns.includes("acne") || targetConcerns.includes("oiliness")) {
+    if (comedogenicRiskScore >= 4) score -= 6;
+    else if (comedogenicRiskScore >= 3) score -= 3;
+  }
+
+  if (targetConcerns.includes("sensitivity") || targetConcerns.includes("redness")) {
+    if (irritationRiskScore >= 4) score -= 6;
+    else if (irritationRiskScore >= 3) score -= 3;
+  }
+
+  // Light guardrails for step/active appropriateness
+  const retinoidType = normalizeText(product.retinoidType || "");
+  const exfoliantType = normalizeText(product.exfoliantType || "");
+
+  if (targetSteps.includes("sunscreen") && productSteps.includes("sunscreen")) {
+    score += 4;
+  }
+
+  if (targetSteps.includes("cleanser") && productSteps.includes("cleanser")) {
+    score += 3;
+  }
+
+  if (targetSteps.includes("moisturizer") && barrierSafeScore >= 80) {
+    score += 2;
+  }
+
+  if ((targetSteps.includes("serum") || targetSteps.includes("ampoule")) && brighteningScore >= 80) {
+    score += 2;
+  }
+
+  if (targetConcerns.includes("sensitivity") && exfoliationIntensity >= 4) {
+    score -= 4;
+  }
+
+  if (targetConcerns.includes("redness") && exfoliantType && exfoliantType !== "none") {
+    score -= 2;
+  }
+
+  if ((targetConcerns.includes("sensitivity") || targetConcerns.includes("dryness")) && retinoidType && retinoidType !== "none") {
+    score -= 2;
+  }
+
   if (!product.url) score -= 100;
 
   return score;
 }
 
 function matchProducts({ step, concerns, skinType, hydrationLevel, overallHealth, limit = 3 }) {
-  const targetStep = normalizeText(step);
-  const targetConcerns = normalizeArray(concerns).map(normalizeText);
+  const targetSteps = enrichStepAliases(step);
   const targetSkinType = normalizeText(skinType);
+  const targetConcerns = normalizeArray(concerns).map(normalizeText);
 
   let candidates = PRODUCT_CATALOG.filter((product) => {
     const steps = normalizeArray(product.routineStep || product.step).map(normalizeText);
-    if (!steps.includes(targetStep)) return false;
+    if (!targetSteps.some((s) => steps.includes(s))) return false;
     if (!product.url) return false;
     return true;
   });
@@ -197,6 +288,7 @@ function matchProducts({ step, concerns, skinType, hydrationLevel, overallHealth
     doNotCombineWith: p.doNotCombineWith || [],
     pairsWellWith: p.pairsWellWith || [],
     consultationTags: p.consultationTags || [],
+    score: Math.round(toNumber(p._score)),
   }));
 }
 
@@ -210,7 +302,7 @@ function buildProductResults(routine, analysis) {
       skinType: analysis.skinType || "",
       hydrationLevel: analysis.hydrationLevel || "",
       overallHealth: analysis.overallHealth || "",
-      limit: 4,
+      limit: 3,
     }).filter((p) => {
       if (!p.url) return false;
       if (usedUrls.has(p.url)) return false;
