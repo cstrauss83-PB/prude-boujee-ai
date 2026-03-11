@@ -141,7 +141,7 @@ function matchProducts({ step, concerns, skinType, hydrationLevel, overallHealth
   const targetSkinType = normalizeText(skinType);
 
   let candidates = PRODUCT_CATALOG.filter((product) => {
-    const steps = normalizeArray(product.step).map(normalizeText);
+    const steps = normalizeArray(product.routineStep).map(normalizeText);
     if (!steps.includes(targetStep)) return false;
     if (!product.url) return false;
     return true;
