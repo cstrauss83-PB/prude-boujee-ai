@@ -7,16 +7,35 @@ export const config = {
 
 const CATALOG_PATH = path.join(process.cwd(), "data", "products.catalog.json");
 
-// Load once per serverless instance
-let PRODUCT_CATALOG = [];
-try {
-  const raw = fs.readFileSync(CATALOG_PATH, "utf8");
-  PRODUCT_CATALOG = JSON.parse(raw);
-  console.log(`Loaded product catalog: ${PRODUCT_CATALOG.length} products`);
-} catch (err) {
-  console.error("Failed to load product catalog:", err);
-  PRODUCT_CATALOG = [];
+function loadProductCatalog() {
+  try {
+    console.log("Catalog path:", CATALOG_PATH);
+    console.log("process.cwd():", process.cwd());
+    console.log("Catalog exists:", fs.existsSync(CATALOG_PATH));
+
+    const raw = fs.readFileSync(CATALOG_PATH, "utf8");
+    const parsed = JSON.parse(raw);
+
+    let products = [];
+
+    if (Array.isArray(parsed)) {
+      products = parsed;
+    } else if (parsed && Array.isArray(parsed.products)) {
+      products = parsed.products;
+    } else {
+      throw new Error("Invalid catalog shape. Expected [] or { products: [] }");
+    }
+
+    console.log(`Loaded product catalog: ${products.length} products`);
+    return products;
+  } catch (err) {
+    console.error("Failed to load product catalog:", err);
+    return [];
+  }
 }
+
+// Load once per serverless instance
+const PRODUCT_CATALOG = loadProductCatalog();
 
 function normalizeText(value = "") {
   return String(value).trim().toLowerCase();
