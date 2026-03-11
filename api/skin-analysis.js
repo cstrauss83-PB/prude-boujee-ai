@@ -77,7 +77,7 @@ function safeJsonParse(text) {
 function uniqueByUrl(products) {
   const seen = new Set();
   return products.filter((p) => {
-    const key = p.url || `${p.brand}-${p.name}`;
+    const key = p.sourceXlsxURL || p.url || `${p.brand}-${p.name}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
